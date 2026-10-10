@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "verifier-trans"
+version = "0.1.0"
+description = "SWE-Bench Pro to functional-verifier conversion pipeline"
+requires-python = ">=3.12"
+dependencies = [
+  "mini-swe-agent==2.4.6",
+  "pyarrow==25.0.1",
+  "PyYAML==6.0.3",
+  "requests==2.34.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[project.scripts]
+verifier-trans = "verifier_trans.cli:main"
+verifier-trans-batch = "verifier_trans.batch:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

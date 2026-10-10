@@ -1,0 +1,57 @@
+model:
+  backend: openai_compatible
+  model: overridden-by-credentials
+  # Converter, QA generators and read-only Judges use role-specific credentials
+  # when provided; otherwise they inherit DEFAULT_* from .env.
+  # Repository exploration sessions can spend several minutes before the
+  # model returns a tool call or explicit submission.  This is an API request
+  # timeout, not the outer revision/step budget.
+  request_timeout_seconds: 600
+  max_tokens: 6144
+  judge_max_tokens: 16384
+prompts:
+  converter: prompts/converter.md
+  positive_generator: prompts/qa/positive_generator.md
+  negative_generator: prompts/qa/negative_generator.md
+  semantic_judge: prompts/judges/semantic.md
+  solution_judge: prompts/judges/positive.md
+  mutation_judge: prompts/judges/negative.md
+agent:
+  # These are emergency tool-step ceilings, not quality or acceptance gates.
+  # A session is successful only after the explicit submission signal and the
+  # deterministic controller gates.  The outer experiment.max_verifier_revisions
+  # limits BUILD/REPAIR submission rounds.
+  converter_step_cap: 160
+  # Cross-language semantic repairs may need to revise a runtime fixture and
+  # its deterministic self-checks in the same session. Keep this bounded, but
+  # do not terminate a repair substantially earlier than a BUILD session.
+  repair_step_cap: 180
+  solver_step_cap: 100
+  mutation_step_cap: 100
+  # Deprecated aliases retained for old configs.
+  converter_turns: 160
+  repair_turns: 180
+  solver_turns: 100
+  mutation_turns: 100
+  tool_timeout_seconds: 180
+  save_trajectory: true
+experiment:
+  # Complex cross-language verifiers may need one additional semantic repair
+  # after the initial artifact-contract repair; keep the same bounded loop.
+  max_verifier_revisions: 4
+  # A verifier command is a bounded gate, not an unbounded build farm.
+  # Native TypeScript/JavaScript builds can spend more than two minutes in
+  # the repository's own compiler/test harness before reporting the F2P
+  # result. Keep this below the QA/package budgets while avoiding a false
+  # infrastructure timeout for a runnable verifier.
+  verifier_timeout_seconds: 300
+  qa_timeout_seconds: 300
+  package_smoke_timeout_seconds: 300
+  replay_repeats: 2
+  # Infrastructure retries rerun the same immutable verifier revision; they
+  # never consume a Converter repair round.
+  infra_retry_limit: 1
+  valid_positive_target: 1
+  eligible_mutant_target: 2
+  max_positive_attempts: 3
+  max_mutation_attempts: 5

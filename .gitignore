@@ -1,0 +1,11 @@
+.env
+.codex/
+.venv/
+runs/*
+!runs/.gitkeep
+!runs/README.md
+.cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.egg-info/

